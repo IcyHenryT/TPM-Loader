@@ -63,8 +63,12 @@ async function getNewestTPM() {
     if (parseInt(latestVer.replace(/\./g, '')) !== vers) {
         console.log(`Downloading new TPM update! (This may take a second)`);
         await downloadExe(latestVer);
-        runExecutable(path.resolve(currentPath, `TPM-${latestVer}-${osName}`));
-        if (newPath) fs.unlinkSync(newPath);
+        setTimeout(() =>{
+            console.log('\n')
+            runExecutable(path.resolve(currentPath, `TPM-${latestVer}-${osName}`));
+        
+            if (newPath) fs.unlinkSync(newPath);
+        }, 150)
     } else {
         console.log(`TPM up to date! Launching bot`);
         runExecutable(path.resolve(currentPath, `TPM-${latestVer}-${osName}`));
@@ -82,9 +86,10 @@ function runExecutable(executablePath) {
 }
 
 async function downloadExe(latestVer) {
-    const osName = process.platform === 'win32' ? 'win.exe' : 'unix';
-    const currentPath = __dirname;
-    const tempPath = path.resolve(currentPath, `TPM-${latestVer}-${osName}`);
+
+    //console.log('starting to download');
+    const tempPath = path.resolve(currentPath, `TPM-${latestVer}-${osName}`)
+    //console.log('hey')
     const writer = fs.createWriteStream(tempPath);
 
     const url = `https://github.com/IcyHenryT/TPM-rewrite/releases/download/${latestVer}/TPM-rewrite-${osName}`;
@@ -107,12 +112,11 @@ async function downloadExe(latestVer) {
         downloadedSize += chunk.length;
         progressBar.update(downloadedSize);
     });
-
+    //console.log('hi')
     exeDownload.data.pipe(writer);
-
+    //console.log('hi again')
     return new Promise((resolve, reject) => {
         writer.on('finish', () => {
-            progressBar.stop();
             if (osName !== 'win.exe') {
                 fs.chmod(tempPath, 0o755, (err) => {
                     if (err) reject(err);
@@ -122,9 +126,6 @@ async function downloadExe(latestVer) {
                 resolve();
             }
         });
-        writer.on('error', (err) => {
-            progressBar.stop();
-            reject(err);
-        });
+        writer.on('error', reject);
     });
 }
