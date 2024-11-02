@@ -2,6 +2,7 @@ const axios = require('axios');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const cliProgress = require('cli-progress');
 const { spawn } = require('child_process');
 
 let osName = os.platform();
@@ -81,10 +82,9 @@ function runExecutable(executablePath) {
 }
 
 async function downloadExe(latestVer) {
-
-    //console.log('starting to download');
-    const tempPath = path.resolve(currentPath, `TPM-${latestVer}-${osName}`)
-    //console.log('hey')
+    const osName = process.platform === 'win32' ? 'win.exe' : 'unix';
+    const currentPath = __dirname;
+    const tempPath = path.resolve(currentPath, `TPM-${latestVer}-${osName}`);
     const writer = fs.createWriteStream(tempPath);
 
     const url = `https://github.com/IcyHenryT/TPM-rewrite/releases/download/${latestVer}/TPM-rewrite-${osName}`;
@@ -94,11 +94,25 @@ async function downloadExe(latestVer) {
         method: 'GET',
         responseType: 'stream'
     });
-    //console.log('hi')
+
+    const totalSize = parseInt(exeDownload.headers['content-length'], 10);
+    const progressBar = new cliProgress.SingleBar({
+        format: 'Downloading |{bar}| {percentage}% | {value}/{total} bytes',
+    }, cliProgress.Presets.shades_classic);
+
+    progressBar.start(totalSize, 0);
+
+    let downloadedSize = 0;
+    exeDownload.data.on('data', (chunk) => {
+        downloadedSize += chunk.length;
+        progressBar.update(downloadedSize);
+    });
+
     exeDownload.data.pipe(writer);
-    //console.log('hi again')
+
     return new Promise((resolve, reject) => {
         writer.on('finish', () => {
+            progressBar.stop();
             if (osName !== 'win.exe') {
                 fs.chmod(tempPath, 0o755, (err) => {
                     if (err) reject(err);
@@ -108,6 +122,9 @@ async function downloadExe(latestVer) {
                 resolve();
             }
         });
-        writer.on('error', reject);
+        writer.on('error', (err) => {
+            progressBar.stop();
+            reject(err);
+        });
     });
 }
